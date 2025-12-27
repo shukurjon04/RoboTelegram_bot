@@ -16,7 +16,7 @@ class RegistrationService:
         valid_referrer = None
         if referrer_id and referrer_id != telegram_id:
             referrer = await self.user_repo.get_user(referrer_id)
-            if referrer and referrer.status == UserStatus.ACTIVE:
+            if referrer:
                 valid_referrer = referrer_id
 
         # Create new user

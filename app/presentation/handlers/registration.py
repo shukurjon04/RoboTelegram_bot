@@ -88,19 +88,28 @@ async def on_check_subscription(
     checker = TelegramChannelChecker(bot)
     sub_service = SubscriptionService(channel_repo, checker)
     
-    is_subbed, unsubscribed = await sub_service.check_user_subscription(db_user.telegram_id)
+    # SAFEGUARD: If db_user is None (e.g. after restore), use telegram ID directly
+    telegram_id = db_user.telegram_id if db_user else callback.from_user.id
+    
+    is_subbed, unsubscribed = await sub_service.check_user_subscription(telegram_id)
     
     if is_subbed:
         # If user is in registration flow
-        if db_user.status == UserStatus.NEW:
+        if db_user and db_user.status == UserStatus.NEW:
             # Move to Name step
             await state.set_state(RegistrationSG.wait_name)
             await callback.message.delete()
             await callback.message.answer("A'zolik tasdiqlandi ✅\n\nSizni tanlov ishtirokchilari ro‘yxatiga sharaf bilan kiritishimiz uchun ism-sharifingizni yozib yuboring. \nBu ism kelgusida sertifikatlaringizda ham aks etadi. ✨")
-        else:
+        elif db_user:
             # Active user triggered by middleware
             await callback.message.delete()
             await callback.message.answer("Siz yana botdan foydalanishingiz mumkin! ✅", reply_markup=main_menu_kb())
+            await callback.answer()
+        else:
+            # Case where user is NOT in DB (db_user is None) but passed subs check
+            # We must register them or ask to start
+            await callback.message.delete()
+            await callback.message.answer("Iltimos, qaytadan ro'yxatdan o'tish uchun /start ni bosing.")
             await callback.answer()
     else:
         text = "Siz quyidagi kanallarga hali obuna bo‘lmadingiz:\n\n"
